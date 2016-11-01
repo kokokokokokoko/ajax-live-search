@@ -37,6 +37,8 @@ class Config
                 /**
                  * specify search query comparison operator.
                  * possible values for comparison operators are: 'LIKE', '=', and 'NLS'. this is required
+                 * Note: the table you are searching must be in FULLTEXT mode if using NLS:
+                 * eg. ALTER TABLE [table] ADD FULLTEXT index1(column);
                  */
                 'comparisonOperator' => 'LIKE',
                 /**
