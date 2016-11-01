@@ -36,7 +36,7 @@ class Config
                 'filterResult'       => [],
                 /**
                  * specify search query comparison operator.
-                 * possible values for comparison operators are: 'LIKE' and '='. this is required
+                 * possible values for comparison operators are: 'LIKE', '=', and 'NLS'. this is required
                  */
                 'comparisonOperator' => 'LIKE',
                 /**
