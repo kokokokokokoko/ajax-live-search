@@ -149,66 +149,78 @@ class Handler
 
         $sql = "SELECT COUNT(*) FROM {$dbInfo['table']}";
 
-        // append where clause if search columns is set in the config
-        $whereClause = '';
-        if (!empty($dbInfo['searchColumns'])) {
-            $whereClause .= ' WHERE';
-            $counter = 1;
-
-            $binary = $dbInfo['caseSensitive'] == true ? 'BINARY' : '';
-
-            switch ($dbInfo['comparisonOperator']) {
-                case '=':
-                    $comparisonOperator = '=';
-                    break;
-                case 'LIKE':
-                    $comparisonOperator = 'LIKE';
-                    break;
-                default:
-                    throw new \Exception('Comparison Operator is not valid');
-            }
-
-            foreach ($dbInfo['searchColumns'] as $searchColumn) {
-                if ($counter == count($dbInfo['searchColumns'])) {
-                    // last item
-                    $whereClause .= " {$binary} {$searchColumn} {$comparisonOperator} :query{$counter}";
-                } else {
-                    $whereClause .= " {$binary} {$searchColumn} {$comparisonOperator} :query{$counter} OR";
-                }
-
-                ++$counter;
-            }
-            $sql .= $whereClause;
-        }
-
-        // get the number of total result
-        $stmt = $db->prepare($sql);
-
-        if (!empty($whereClause)) {
-            switch ($dbInfo['searchPattern']) {
-                case 'q':
-                    $searchQuery = $query;
-                    break;
-                case '*q':
-                    $searchQuery = "%{$query}";
-                    break;
-                case 'q*':
-                    $searchQuery = "{$query}%";
-                    break;
-                case '*q*':
-                    $searchQuery = "%{$query}%";
-                    break;
-                default:
-                    throw new \Exception('Search Pattern is not valid');
-            }
-
-            for ($i = 1; $i <= count($dbInfo['searchColumns']); ++$i) {
-                $toBindQuery = ':query' . $i;
-                $stmt->bindParam($toBindQuery, $searchQuery, \PDO::PARAM_STR);
-            }
-        }
-
-        $stmt->execute();
+        if ($dbInfo['comparisonOperator']!='NLS') {
+	        // append where clause if search columns is set in the config
+	        $whereClause = '';
+	        if (!empty($dbInfo['searchColumns'])) {
+	            $whereClause .= ' WHERE';
+	            $counter = 1;
+	
+	            $binary = $dbInfo['caseSensitive'] == true ? 'BINARY' : '';
+	
+	            switch ($dbInfo['comparisonOperator']) {
+	                case '=':
+	                    $comparisonOperator = '=';
+	                    break;
+	                case 'LIKE':
+	                    $comparisonOperator = 'LIKE';
+	                    break;
+	                default:
+	                    throw new \Exception('Comparison Operator is not valid');
+	            }
+	
+	            foreach ($dbInfo['searchColumns'] as $searchColumn) {
+	                if ($counter == count($dbInfo['searchColumns'])) {
+	                    // last item
+	                    $whereClause .= " {$binary} {$searchColumn} {$comparisonOperator} :query{$counter}";
+	                } else {
+	                    $whereClause .= " {$binary} {$searchColumn} {$comparisonOperator} :query{$counter} OR";
+	                }
+	
+	                ++$counter;
+	            }
+	            $sql .= $whereClause;
+	        }
+	
+	        // get the number of total result
+	        $stmt = $db->prepare($sql);
+	
+	        if (!empty($whereClause)) {
+	            switch ($dbInfo['searchPattern']) {
+	                case 'q':
+	                    $searchQuery = $query;
+	                    break;
+	                case '*q':
+	                    $searchQuery = "%{$query}";
+	                    break;
+	                case 'q*':
+	                    $searchQuery = "{$query}%";
+	                    break;
+	                case '*q*':
+	                    $searchQuery = "%{$query}%";
+	                    break;
+	                default:
+	                    throw new \Exception('Search Pattern is not valid');
+	            }
+	
+	            for ($i = 1; $i <= count($dbInfo['searchColumns']); ++$i) {
+	                $toBindQuery = ':query' . $i;
+	                $stmt->bindParam($toBindQuery, $searchQuery, \PDO::PARAM_STR);
+	            }
+	        }
+	
+	        $stmt->execute();
+	        
+	    //NLS
+	    } else {
+	    	$whereClause = " WHERE MATCH (".implode(',',$dbInfo['searchColumns']).") AGAINST (:query1 IN BOOLEAN MODE)";
+	    	$sql .= $whereClause . ";";
+	    	$stmt = $db->prepare($sql);
+	    	$query = '+'.str_replace(' ', ' +', trim($query));
+	    	$stmt->bindParam('query1', $query, \PDO::PARAM_STR);
+	    	$stmt->execute();
+	    }
+	    
         $resultNumber = (int) $stmt->fetch(\PDO::FETCH_COLUMN);
 
         if (isset($dbInfo['maxResult']) && $resultNumber > $dbInfo['maxResult']) {
@@ -252,10 +264,14 @@ class Handler
                 $stmt = $db->prepare($baseSQL);
 
                 if (!empty($whereClause)) {
-                    for ($i = 1; $i <= count($dbInfo['searchColumns']); ++$i) {
-                        $toBindQuery = ':query' . $i;
-                        $stmt->bindParam($toBindQuery, $searchQuery, \PDO::PARAM_STR);
-                    }
+                	if ($dbInfo['comparisonOperator']!='NLS') {
+	                    for ($i = 1; $i <= count($dbInfo['searchColumns']); ++$i) {
+	                        $toBindQuery = ':query' . $i;
+	                        $stmt->bindParam($toBindQuery, $searchQuery, \PDO::PARAM_STR);
+	                    }
+                	} else {
+                		$stmt->bindParam('query1', $query, \PDO::PARAM_STR);
+                	}
                 }
             } else {
                 /*
@@ -305,10 +321,14 @@ class Handler
                 );
 
                 if (!empty($whereClause)) {
-                    for ($i = 1; $i <= count($dbInfo['searchColumns']); ++$i) {
-                        $toBindQuery = ':query' . $i;
-                        $stmt->bindParam($toBindQuery, $searchQuery, \PDO::PARAM_STR);
-                    }
+                	if ($dbInfo['comparisonOperator']!='NLS') {
+	                    for ($i = 1; $i <= count($dbInfo['searchColumns']); ++$i) {
+	                        $toBindQuery = ':query' . $i;
+	                        $stmt->bindParam($toBindQuery, $searchQuery, \PDO::PARAM_STR);
+	                    }
+                	} else {
+                		$stmt->bindParam('query1', $query, \PDO::PARAM_STR);
+                	}
                 }
             }
 
